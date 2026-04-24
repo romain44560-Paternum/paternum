@@ -1,1 +1,108 @@
-<html><body><h1>Paternum</h1></body></html>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paternum</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: #1e293b;
+      border-radius: 12px;
+      padding: 48px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 4px 32px rgba(0,0,0,0.4);
+    }
+    h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+    .subtitle { color: #94a3b8; margin-bottom: 32px; }
+    .btn {
+      display: inline-block;
+      background: #3b82f6;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      font-size: 1rem;
+      width: 100%;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #2563eb; }
+    .btn-danger {
+      background: #ef4444;
+      margin-top: 12px;
+    }
+    .btn-danger:hover { background: #dc2626; }
+    .user-info {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .user-name { font-size: 1.2rem; font-weight: 600; }
+    .user-email { color: #94a3b8; font-size: 0.9rem; margin-top: 4px; }
+    #login-view, #app-view { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Paternum</h1>
+    <p class="subtitle">Gestion de dossiers judiciaires</p>
+
+    <!-- Vue non connecté -->
+    <div id="login-view">
+      <a class="btn" href="/api/auth/login">Se connecter avec Nextcloud</a>
+    </div>
+
+    <!-- Vue connecté -->
+    <div id="app-view">
+      <div class="user-info">
+        <div class="user-name" id="user-name"></div>
+        <div class="user-email" id="user-email"></div>
+      </div>
+      <button class="btn">Mes dossiers</button>
+      <button class="btn btn-danger" onclick="logout()">Se déconnecter</button>
+    </div>
+  </div>
+
+  <script>
+    // Récupère le token depuis l'URL ou le localStorage
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken) {
+      localStorage.setItem('token', urlToken);
+      window.history.replaceState({}, '', '/');
+    }
+
+    const token = localStorage.getItem('token');
+
+    if (token) {
+      // Décode le JWT (sans vérification, juste pour afficher)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      document.getElementById('user-name').textContent = payload.display_name;
+      document.getElementById('user-email').textContent = payload.nextcloud_id;
+      document.getElementById('app-view').style.display = 'block';
+    } else {
+      document.getElementById('login-view').style.display = 'block';
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.reload();
+    }
+  </script>
+</body>
+</html>
