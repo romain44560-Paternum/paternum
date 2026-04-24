@@ -54,8 +54,27 @@
     }
     .user-name { font-size: 1.2rem; font-weight: 600; }
     .user-email { color: #94a3b8; font-size: 0.9rem; margin-top: 4px; }
-    #login-view, #app-view, #dossiers-view { display: none; }
-    .dossier-list { text-align: left; margin-bottom: 16px; }
+    #login-view, #app-view, #dossiers-view, #documents-view { display: none; }
+    .doc-list { text-align: left; margin-bottom: 16px; }
+    .doc-item {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .doc-nom { font-weight: 500; font-size: 0.95rem; }
+    .doc-meta { font-size: 0.8rem; color: #94a3b8; margin-top: 2px; }
+    .badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: #1e40af;
+      color: #93c5fd;
+    }
+    .badge-new { background: #166534; color: #86efac; }
     .dossier-item {
       background: #0f172a;
       border-radius: 8px;
@@ -104,7 +123,12 @@
       <button class="btn btn-danger" onclick="logout()" style="margin-top:12px">Se déconnecter</button>
     </div>
 
-    <!-- Vue dossiers -->
+    <!-- Vue documents -->
+    <div id="documents-view">
+      <button class="btn btn-back" onclick="showDossiers()">← Dossiers</button>
+      <h2 style="margin-bottom:16px" id="doc-titre"></h2>
+      <div class="doc-list" id="doc-list"></div>
+    </div>
     <div id="dossiers-view">
       <button class="btn btn-back" onclick="showApp()">← Retour</button>
       <h2 style="margin-bottom:16px">Mes dossiers</h2>
@@ -142,6 +166,30 @@
       document.getElementById('dossiers-view').style.display = 'none';
     }
 
+    async function showDocuments(dossierId, titre) {
+      document.getElementById('dossiers-view').style.display = 'none';
+      document.getElementById('documents-view').style.display = 'block';
+      document.getElementById('doc-titre').textContent = titre;
+      const res = await fetch(`/api/documents/${dossierId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const docs = await res.json();
+      const list = document.getElementById('doc-list');
+      if (docs.length === 0) {
+        list.innerHTML = '<p style="color:#94a3b8;text-align:center">Aucun document détecté</p>';
+        return;
+      }
+      list.innerHTML = docs.map(d => `
+        <div class="doc-item">
+          <div>
+            <div class="doc-nom">📄 ${d.nom}</div>
+            <div class="doc-meta">${new Date(d.created_at).toLocaleDateString('fr-FR')}</div>
+          </div>
+          <span class="badge ${d.fiche_ia ? '' : 'badge-new'}">${d.fiche_ia ? 'Analysé' : 'Nouveau'}</span>
+        </div>
+      `).join('');
+    }
+
     async function showDossiers() {
       document.getElementById('app-view').style.display = 'none';
       document.getElementById('dossiers-view').style.display = 'block';
@@ -159,12 +207,12 @@
         return;
       }
       list.innerHTML = dossiers.map(d => `
-        <div class="dossier-item">
+        <div class="dossier-item" onclick="showDocuments(${d.id}, '${d.titre}')">
           <div>
             <div class="dossier-titre">${d.titre}</div>
-            <div class="dossier-statut">${d.statut} · ${new Date(d.created_at).toLocaleDateString('fr-FR')}</div>
+            <div class="dossier-statut">${d.statut} · ${new Date(d.created_at).toLocaleDateString('fr-FR')}${d.nextcloud_path ? ' · 📁 ' + d.nextcloud_path : ''}</div>
           </div>
-          <button class="dossier-delete" onclick="supprimerDossier(${d.id})">🗑</button>
+          <button class="dossier-delete" onclick="event.stopPropagation(); supprimerDossier(${d.id})">🗑</button>
         </div>
       `).join('');
     }
