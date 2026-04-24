@@ -1,7 +1,7 @@
 const { NEXTCLOUD_URL } = process.env;
 
-// Liste les fichiers d'un dossier Nextcloud via WebDAV
-const listFiles = async (ncToken, path, ncUserId = 'admin') => {
+// Liste les fichiers d'un dossier Nextcloud via WebDAV (récursif)
+const listFilesInPath = async (ncToken, ncUserId, path) => {
   const cleanPath = path.startsWith('/') ? path.slice(1) : path;
   const url = `${NEXTCLOUD_URL}/remote.php/dav/files/${ncUserId}/${cleanPath}`;
 
@@ -24,11 +24,10 @@ const listFiles = async (ncToken, path, ncUserId = 'admin') => {
   });
 
   if (!res.ok) throw new Error(`WebDAV erreur: ${res.status}`);
-
   const xml = await res.text();
 
-  // Parse basique du XML WebDAV
   const files = [];
+  const subDirs = [];
   const responseRegex = /<d:response>([\s\S]*?)<\/d:response>/g;
   let match;
 
@@ -40,8 +39,15 @@ const listFiles = async (ncToken, path, ncUserId = 'admin') => {
     const modified = block.match(/<d:getlastmodified>(.*?)<\/d:getlastmodified>/)?.[1] || '';
     const size = block.match(/<d:getcontentlength>(.*?)<\/d:getcontentlength>/)?.[1] || 0;
 
-    // Ignore les dossiers, garde seulement les fichiers
-    if (name && type && !type.includes('directory')) {
+    if (!name) continue;
+
+    if (!type || type.includes('directory')) {
+      // C'est un sous-dossier — on le scanne récursivement (sauf le dossier racine lui-même)
+      const decodedHref = decodeURIComponent(href);
+      if (!decodedHref.endsWith(`/${cleanPath}/`) && name !== cleanPath) {
+        subDirs.push(`/${cleanPath}/${name}`);
+      }
+    } else {
       files.push({
         name,
         href: decodeURIComponent(href),
@@ -52,7 +58,17 @@ const listFiles = async (ncToken, path, ncUserId = 'admin') => {
     }
   }
 
+  // Récursion dans les sous-dossiers
+  for (const subDir of subDirs) {
+    const subFiles = await listFilesInPath(ncToken, ncUserId, subDir);
+    files.push(...subFiles);
+  }
+
   return files;
+};
+
+const listFiles = async (ncToken, path, ncUserId = 'admin') => {
+  return listFilesInPath(ncToken, ncUserId, path);
 };
 
 // Télécharge un fichier depuis Nextcloud

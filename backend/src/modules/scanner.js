@@ -21,20 +21,26 @@ const scanDossiers = async (userId, ncToken) => {
       console.log(`Fichiers trouvés: ${fichiers.length}`);
 
       for (const fichier of fichiers) {
-        // Vérifie si le fichier est déjà en base
+        // Cherche par nom de fichier (résiste aux déplacements)
         const { rows } = await pool.query(
-          'SELECT id FROM documents WHERE dossier_id = $1 AND nextcloud_path = $2',
-          [dossier.id, fichier.href]
+          'SELECT id, nextcloud_path FROM documents WHERE dossier_id = $1 AND nom = $2',
+          [dossier.id, fichier.name]
         );
 
         if (rows.length === 0) {
-          // Nouveau fichier — on l'ajoute en base
+          // Nouveau fichier
           await pool.query(
-            `INSERT INTO documents (dossier_id, nom, nextcloud_path)
-             VALUES ($1, $2, $3)`,
+            'INSERT INTO documents (dossier_id, nom, nextcloud_path) VALUES ($1, $2, $3)',
             [dossier.id, fichier.name, fichier.href]
           );
           nouveaux.push({ dossier: dossier.titre, fichier: fichier.name });
+        } else if (rows[0].nextcloud_path !== fichier.href) {
+          // Fichier déplacé — on met à jour le chemin
+          await pool.query(
+            'UPDATE documents SET nextcloud_path = $1 WHERE id = $2',
+            [fichier.href, rows[0].id]
+          );
+          console.log(`Fichier déplacé: ${fichier.name} → ${fichier.href}`);
         }
       }
     } catch (err) {
