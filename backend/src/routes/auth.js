@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const { pool } = require('../db');
+const { client: redis } = require('../redis');
+const { scanDossiers } = require('../modules/scanner');
 
 const {
   NEXTCLOUD_URL,
@@ -53,6 +55,7 @@ router.get('/callback', async (req, res) => {
     });
 
     const userData = await userRes.json();
+    console.log('User response:', JSON.stringify(userData));
     const nc = userData.ocs.data;
 
     // Crée ou met à jour l'utilisateur en base
@@ -66,6 +69,14 @@ router.get('/callback', async (req, res) => {
     );
 
     const user = result.rows[0];
+
+    // Stocke le token Nextcloud dans Redis (expire avec le token)
+    await redis.set(`nc_token:${user.id}`, tokenData.access_token, { EX: 3600 });
+
+    // Scan des nouveaux fichiers en arrière-plan
+    scanDossiers(user.id, tokenData.access_token).then(nouveaux => {
+      if (nouveaux.length > 0) console.log(`Nouveaux fichiers détectés:`, nouveaux);
+    }).catch(err => console.error('Scan erreur:', err.message));
 
     // Génère un JWT Paternum
     const token = jwt.sign(

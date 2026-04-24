@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS dossiers (
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   titre VARCHAR(255) NOT NULL,
   description TEXT,
+  nextcloud_path TEXT,
   statut VARCHAR(50) DEFAULT 'en_cours',
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()

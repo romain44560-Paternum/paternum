@@ -4,6 +4,7 @@ const cors = require('cors');
 const { testDB } = require('./db');
 const { testRedis } = require('./redis');
 const authRoutes = require('./routes/auth');
+const dossiersRoutes = require('./routes/dossiers');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -12,6 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 app.use('/api/auth', authRoutes);
+app.use('/api/dossiers', dossiersRoutes);
 
 // Route de santé
 app.get('/api/health', async (req, res) => {

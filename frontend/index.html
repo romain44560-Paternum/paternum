@@ -54,7 +54,34 @@
     }
     .user-name { font-size: 1.2rem; font-weight: 600; }
     .user-email { color: #94a3b8; font-size: 0.9rem; margin-top: 4px; }
-    #login-view, #app-view { display: none; }
+    #login-view, #app-view, #dossiers-view { display: none; }
+    .dossier-list { text-align: left; margin-bottom: 16px; }
+    .dossier-item {
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+    }
+    .dossier-item:hover { background: #1a2744; }
+    .dossier-titre { font-weight: 600; }
+    .dossier-statut { font-size: 0.8rem; color: #94a3b8; }
+    .dossier-delete { color: #ef4444; background: none; border: none; cursor: pointer; font-size: 1.1rem; }
+    input, textarea {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 10px;
+      color: #e2e8f0;
+      font-size: 1rem;
+      margin-bottom: 12px;
+    }
+    .btn-back { background: #475569; margin-bottom: 16px; }
+    .btn-back:hover { background: #334155; }
   </style>
 </head>
 <body>
@@ -67,14 +94,25 @@
       <a class="btn" href="/api/auth/login">Se connecter avec Nextcloud</a>
     </div>
 
-    <!-- Vue connecté -->
+    <!-- Vue accueil connecté -->
     <div id="app-view">
       <div class="user-info">
         <div class="user-name" id="user-name"></div>
         <div class="user-email" id="user-email"></div>
       </div>
-      <button class="btn">Mes dossiers</button>
-      <button class="btn btn-danger" onclick="logout()">Se déconnecter</button>
+      <button class="btn" onclick="showDossiers()">Mes dossiers</button>
+      <button class="btn btn-danger" onclick="logout()" style="margin-top:12px">Se déconnecter</button>
+    </div>
+
+    <!-- Vue dossiers -->
+    <div id="dossiers-view">
+      <button class="btn btn-back" onclick="showApp()">← Retour</button>
+      <h2 style="margin-bottom:16px">Mes dossiers</h2>
+      <div class="dossier-list" id="dossier-list"></div>
+      <input type="text" id="new-titre" placeholder="Titre du dossier">
+      <input type="text" id="new-path" placeholder="Dossier Nextcloud (ex: /Documents/JAF/2024)">
+      <textarea id="new-desc" placeholder="Description (optionnel)" rows="2"></textarea>
+      <button class="btn" onclick="creerDossier()">+ Créer un dossier</button>
     </div>
   </div>
 
@@ -97,6 +135,65 @@
       document.getElementById('app-view').style.display = 'block';
     } else {
       document.getElementById('login-view').style.display = 'block';
+    }
+
+    function showApp() {
+      document.getElementById('app-view').style.display = 'block';
+      document.getElementById('dossiers-view').style.display = 'none';
+    }
+
+    async function showDossiers() {
+      document.getElementById('app-view').style.display = 'none';
+      document.getElementById('dossiers-view').style.display = 'block';
+      await chargerDossiers();
+    }
+
+    async function chargerDossiers() {
+      const res = await fetch('/api/dossiers', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const dossiers = await res.json();
+      const list = document.getElementById('dossier-list');
+      if (dossiers.length === 0) {
+        list.innerHTML = '<p style="color:#94a3b8;text-align:center">Aucun dossier pour l\'instant</p>';
+        return;
+      }
+      list.innerHTML = dossiers.map(d => `
+        <div class="dossier-item">
+          <div>
+            <div class="dossier-titre">${d.titre}</div>
+            <div class="dossier-statut">${d.statut} · ${new Date(d.created_at).toLocaleDateString('fr-FR')}</div>
+          </div>
+          <button class="dossier-delete" onclick="supprimerDossier(${d.id})">🗑</button>
+        </div>
+      `).join('');
+    }
+
+    async function creerDossier() {
+      const titre = document.getElementById('new-titre').value.trim();
+      if (!titre) return alert('Titre requis');
+      await fetch('/api/dossiers', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titre,
+          description: document.getElementById('new-desc').value,
+          nextcloud_path: document.getElementById('new-path').value.trim() || null
+        })
+      });
+      document.getElementById('new-titre').value = '';
+      document.getElementById('new-path').value = '';
+      document.getElementById('new-desc').value = '';
+      await chargerDossiers();
+    }
+
+    async function supprimerDossier(id) {
+      if (!confirm('Supprimer ce dossier ?')) return;
+      await fetch(`/api/dossiers/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      await chargerDossiers();
     }
 
     function logout() {
